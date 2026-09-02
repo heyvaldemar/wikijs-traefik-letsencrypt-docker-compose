@@ -82,6 +82,8 @@ The daily `check-pin-freshness` CI job re-resolves each pinned tag against its r
 
 The `backups` container runs `pg_dump | gzip` on a loop: an initial delay (`BACKUP_INIT_SLEEP`, default 30m), then one timestamped dump every `BACKUP_INTERVAL` (default 24h), pruning files older than `POSTGRES_BACKUP_PRUNE_DAYS` (default 7). All knobs are `.env`-overridable — see `.env.example`.
 
+Each cycle logs `Database backup OK: <file> (<bytes> bytes)` or `Database backup FAILED` (the same for the data archive where there is one). A failed dump is kept as `<file>.failed` for diagnosis and never overwrites a good backup — grep the log for `FAILED` from your monitoring.
+
 **Verify backups are running:**
 
 ```bash
