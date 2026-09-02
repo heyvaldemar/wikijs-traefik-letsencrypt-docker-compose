@@ -1,3 +1,15 @@
+# Image pins live HERE, as interpolation defaults, so `git pull` (or
+# re-downloading this file) delivers the exact version combination this
+# repository has tested — no .env editing required. Setting the matching
+# variable in .env overrides the default for anyone who wants to pin
+# differently; .env itself carries only secrets and deliberate overrides.
+# CI (Trivy scans, check-pin-freshness, the ephemeral test .env) reads
+# the pins from these lines — this block is the single source of truth.
+x-images:
+  traefik: &traefik-image ${TRAEFIK_IMAGE_TAG:-traefik:3.7@sha256:9c2a54d87f76f5c2f5f2682c68394af92fb12c0a2686798d6462a3f84bd78eaf}
+  wikijs: &wikijs-image ${WIKIJS_IMAGE_TAG:-requarks/wiki:2.5.314@sha256:68f0d1848261ae76492ba358e30a96a76fed5d97a3fff381656082bf90f70d7e}
+  postgres: &postgres-image ${WIKIJS_POSTGRES_IMAGE_TAG:-postgres:14.24@sha256:156f0b253fd61366d5fc2107ad45955027d5612f695a8436ce20167f3fa79bff}
+
 networks:
   wikijs-network:
     external: true
@@ -12,17 +24,17 @@ volumes:
 
 services:
   postgres:
-    image: ${WIKIJS_POSTGRES_IMAGE_TAG}
+    image: *postgres-image
     volumes:
       - wikijs-postgres:/var/lib/postgresql/data
     environment:
-      POSTGRES_DB: ${WIKIJS_DB_NAME}
-      POSTGRES_USER: ${WIKIJS_DB_USER}
-      POSTGRES_PASSWORD: ${WIKIJS_DB_PASSWORD}
+      POSTGRES_DB: ${WIKIJS_DB_NAME:-wikijsdb}
+      POSTGRES_USER: ${WIKIJS_DB_USER:-wikijsdbuser}
+      POSTGRES_PASSWORD: ${WIKIJS_DB_PASSWORD:?set in .env - see .env.example}
     networks:
       - wikijs-network
     healthcheck:
-      test: [ "CMD", "pg_isready", "-q", "-d", "${WIKIJS_DB_NAME}", "-U", "${WIKIJS_DB_USER}" ]
+      test: [ "CMD", "pg_isready", "-q", "-d", "${WIKIJS_DB_NAME:-wikijsdb}", "-U", "${WIKIJS_DB_USER:-wikijsdbuser}" ]
       interval: 10s
       timeout: 5s
       retries: 3
@@ -30,13 +42,13 @@ services:
     restart: unless-stopped
 
   wikijs:
-    image: ${WIKIJS_IMAGE_TAG}
+    image: *wikijs-image
     environment:
-      DB_TYPE: ${WIKIJS_DB_TYPE}
+      DB_TYPE: ${WIKIJS_DB_TYPE:-postgres}
       DB_HOST: postgres
       DB_PORT: 5432
-      DB_NAME: ${WIKIJS_DB_NAME}
-      DB_USER: ${WIKIJS_DB_USER}
+      DB_NAME: ${WIKIJS_DB_NAME:-wikijsdb}
+      DB_USER: ${WIKIJS_DB_USER:-wikijsdbuser}
       DB_PASS: ${WIKIJS_DB_PASSWORD}
     networks:
       - wikijs-network
@@ -51,7 +63,7 @@ services:
       # Enable Traefik for this container
       - "traefik.enable=true"
       # Match incoming requests on a specific hostname
-      - "traefik.http.routers.wikijs.rule=Host(`${WIKIJS_HOSTNAME}`)"
+      - "traefik.http.routers.wikijs.rule=Host(`${WIKIJS_HOSTNAME:?set in .env - see .env.example}`)"
       # Assign the router to a named Traefik service
       - "traefik.http.routers.wikijs.service=wikijs"
       # Use the 'websecure' (HTTPS) entry point
@@ -78,10 +90,10 @@ services:
         condition: service_healthy
 
   traefik:
-    image: ${TRAEFIK_IMAGE_TAG}
+    image: *traefik-image
     command:
       # Set the log level (DEBUG, INFO, WARN, ERROR)
-      - "--log.level=${TRAEFIK_LOG_LEVEL}"
+      - "--log.level=${TRAEFIK_LOG_LEVEL:-WARN}"
       # Enable the built-in API and web-based dashboard
       - "--api.dashboard=true"
       # Enable the /ping endpoint so we can health-check Traefik
@@ -106,7 +118,7 @@ services:
       # Use ACME (Let's Encrypt) to generate/renew certificates via TLS challenge
       - "--certificatesresolvers.letsencrypt.acme.tlschallenge=true"
       # The email address used by Let's Encrypt for renewal notices
-      - "--certificatesresolvers.letsencrypt.acme.email=${TRAEFIK_ACME_EMAIL}"
+      - "--certificatesresolvers.letsencrypt.acme.email=${TRAEFIK_ACME_EMAIL:?set in .env - see .env.example}"
       # The file where ACME certificates are stored inside the container
       - "--certificatesresolvers.letsencrypt.acme.storage=/etc/traefik/acme/acme.json"
       # Enable Prometheus metrics
@@ -135,14 +147,14 @@ services:
       # Enable Traefik for this container
       - "traefik.enable=true"
       # A router to expose the Traefik dashboard
-      - "traefik.http.routers.dashboard.rule=Host(`${TRAEFIK_HOSTNAME}`)"
+      - "traefik.http.routers.dashboard.rule=Host(`${TRAEFIK_HOSTNAME:?set in .env - see .env.example}`)"
       - "traefik.http.routers.dashboard.entrypoints=websecure"
       - "traefik.http.routers.dashboard.tls=true"
       - "traefik.http.routers.dashboard.tls.certresolver=letsencrypt"
       - "traefik.http.routers.dashboard.service=api@internal"
       # Basic Authentication for the Traefik dashboard
       - "traefik.http.routers.dashboard.middlewares=authtraefik"
-      - "traefik.http.middlewares.authtraefik.basicauth.users=${TRAEFIK_BASIC_AUTH}"
+      - "traefik.http.middlewares.authtraefik.basicauth.users=${TRAEFIK_BASIC_AUTH:?set in .env - see .env.example for htpasswd generation}"
       # Specify the internal server port to the dashboard service
       - "traefik.http.services.dashboard.loadbalancer.server.port=8080"
       # Pass the original Host header to the backend
@@ -150,25 +162,25 @@ services:
     restart: unless-stopped
 
   backups:
-    image: ${WIKIJS_POSTGRES_IMAGE_TAG}
+    image: *postgres-image
     command: >-
-      sh -c 'sleep $BACKUP_INIT_SLEEP &&
+      sh -c 'sleep $$BACKUP_INIT_SLEEP &&
       while true; do
-        pg_dump -h postgres -p 5432 -d $WIKIJS_DB_NAME -U $WIKIJS_DB_USER | gzip > $POSTGRES_BACKUPS_PATH/$POSTGRES_BACKUP_NAME-$(date "+%Y-%m-%d_%H-%M").gz &&
-        find $POSTGRES_BACKUPS_PATH -type f -mtime +$POSTGRES_BACKUP_PRUNE_DAYS | xargs rm -f &&
-        sleep $BACKUP_INTERVAL; done'
+        pg_dump -h postgres -p 5432 -d $$WIKIJS_DB_NAME -U $$WIKIJS_DB_USER | gzip > $$POSTGRES_BACKUPS_PATH/$$POSTGRES_BACKUP_NAME-$$(date "+%Y-%m-%d_%H-%M").gz &&
+        find $$POSTGRES_BACKUPS_PATH -type f -mtime +$$POSTGRES_BACKUP_PRUNE_DAYS | xargs rm -f &&
+        sleep $$BACKUP_INTERVAL; done'
     volumes:
       - wikijs-postgres-backup:/var/lib/postgresql/data
-      - wikijs-database-backups:${POSTGRES_BACKUPS_PATH}
+      - wikijs-database-backups:${POSTGRES_BACKUPS_PATH:-/srv/wikijs-postgres/backups}
     environment:
-      WIKIJS_DB_NAME: ${WIKIJS_DB_NAME}
-      WIKIJS_DB_USER: ${WIKIJS_DB_USER}
+      WIKIJS_DB_NAME: ${WIKIJS_DB_NAME:-wikijsdb}
+      WIKIJS_DB_USER: ${WIKIJS_DB_USER:-wikijsdbuser}
       PGPASSWORD: ${WIKIJS_DB_PASSWORD}
-      BACKUP_INIT_SLEEP: ${BACKUP_INIT_SLEEP}
-      BACKUP_INTERVAL: ${BACKUP_INTERVAL}
-      POSTGRES_BACKUP_PRUNE_DAYS: ${POSTGRES_BACKUP_PRUNE_DAYS}
-      POSTGRES_BACKUPS_PATH: ${POSTGRES_BACKUPS_PATH}
-      POSTGRES_BACKUP_NAME: ${POSTGRES_BACKUP_NAME}
+      BACKUP_INIT_SLEEP: ${BACKUP_INIT_SLEEP:-30m}
+      BACKUP_INTERVAL: ${BACKUP_INTERVAL:-24h}
+      POSTGRES_BACKUP_PRUNE_DAYS: ${POSTGRES_BACKUP_PRUNE_DAYS:-7}
+      POSTGRES_BACKUPS_PATH: ${POSTGRES_BACKUPS_PATH:-/srv/wikijs-postgres/backups}
+      POSTGRES_BACKUP_NAME: ${POSTGRES_BACKUP_NAME:-wikijs-postgres-backup}
     networks:
       - wikijs-network
     restart: unless-stopped

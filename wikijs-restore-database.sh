@@ -12,11 +12,10 @@
 # `chmod +x wikijs-restore-database.sh`
 # Usage of this script ensures a controlled and guided process to restore the database from an existing backup.
 
-WIKIJS_CONTAINER=$(docker ps -aqf "name=wikijs-wikijs")
-WIKIJS_BACKUPS_CONTAINER=$(docker ps -aqf "name=wikijs-backups")
+WIKIJS_CONTAINER="$(docker ps -aqf "name=wikijs-wikijs")"
+WIKIJS_BACKUPS_CONTAINER="$(docker ps -aqf "name=wikijs-backups")"
 WIKIJS_DB_NAME="wikijsdb"
 WIKIJS_DB_USER="wikijsdbuser"
-POSTGRES_PASSWORD=$(docker exec $WIKIJS_BACKUPS_CONTAINER printenv PGPASSWORD)
 BACKUP_PATH="/srv/wikijs-postgres/backups/"
 
 echo "--> All available database backups:"
@@ -30,7 +29,7 @@ echo "--> Copy and paste the backup name from the list above to restore database
 --> Example: wikijs-postgres-backup-YYYY-MM-DD_hh-mm.gz"
 echo -n "--> "
 
-read SELECTED_DATABASE_BACKUP
+read -r SELECTED_DATABASE_BACKUP
 
 echo "--> $SELECTED_DATABASE_BACKUP was selected"
 
