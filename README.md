@@ -100,6 +100,10 @@ chmod +x wikijs-restore-database.sh
 
 The script lists available dumps, prompts for a selection, stops Wiki.js, recreates the database from the chosen dump, and starts Wiki.js again. It assumes the default database name and user; adjust the variables at the top if you changed them in `.env`.
 
+## Resource limits
+
+Every service carries memory and CPU limits plus reservations as compose-level defaults — the same values CI boots the stack under. Override any of them in `.env` (the knobs and their defaults are listed in `.env.example`, e.g. `TRAEFIK_MEMORY_LIMIT=512m`) and the override survives every `git pull`. If a service is OOM-killed under real load, `docker inspect <container> --format '{{.State.OOMKilled}}'` says so; raise its `_MEMORY_LIMIT` and recreate.
+
 ## Testing
 
 The [Deployment Verification](https://github.com/heyvaldemar/wikijs-traefik-letsencrypt-docker-compose/actions/workflows/deployment-verification.yml?query=branch%3Amain) workflow runs on every push, pull request, and every day at 06:00 UTC: shellcheck + actionlint, a Trivy scan of each pinned image, the daily `check-pin-freshness` job, and a deploy-and-test job that boots the full stack with an ephemeral `.env` and short backup intervals, requires the Wiki.js UI to answer 200 over HTTPS through Traefik, and verifies that a backup file appears and contains a valid PostgreSQL dump.
