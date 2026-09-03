@@ -2,7 +2,7 @@
 
 [![Deployment Verification](https://github.com/heyvaldemar/wikijs-traefik-letsencrypt-docker-compose/actions/workflows/deployment-verification.yml/badge.svg?branch=main)](https://github.com/heyvaldemar/wikijs-traefik-letsencrypt-docker-compose/actions/workflows/deployment-verification.yml)
 
-This repository deploys **Wiki.js** (a modern, self-hosted wiki) behind **Traefik** with automatic **Let's Encrypt TLS**, backed by **PostgreSQL**, with a scheduled **backup container** and a companion **restore script**.
+This repository deploys Wiki.js (a modern, self-hosted wiki) behind Traefik with automatic Let's Encrypt TLS, backed by PostgreSQL, with a scheduled backup container and a companion restore script.
 
 📙 Full narrative installation guide on the blog: [heyvaldemar.com/install-wikijs-using-docker-compose/](https://www.heyvaldemar.com/install-wikijs-using-docker-compose/).
 
@@ -125,7 +125,7 @@ chmod +x tests/e2e-backup-restore.sh
 
 It stops the database container briefly to prove failure detection: run it on a staging copy, not on production.
 
-## Security Notes
+## Security notes
 
 - Credentials are read from `.env` at deploy time; `.env` is gitignored and required variables fail fast with `${VAR:?…}` guards.
 - **Pre-rotation advisory.** Before v1.0.0 this repository tracked a `.env` containing a literal `WIKIJS_DB_PASSWORD` value. That value remains in git history. Anyone who deployed with it should rotate: `ALTER USER wikijsdbuser WITH PASSWORD '<new strong password>';` in PostgreSQL, then update `.env` and `docker compose up -d --force-recreate`.
