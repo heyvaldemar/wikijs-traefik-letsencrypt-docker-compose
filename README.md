@@ -1,8 +1,8 @@
-# Wiki.js + Traefik + Let's Encrypt — Docker Compose
+# Wiki.js + Traefik + Let's Encrypt on Docker Compose
 
 [![Deployment Verification](https://github.com/heyvaldemar/wikijs-traefik-letsencrypt-docker-compose/actions/workflows/deployment-verification.yml/badge.svg?branch=main)](https://github.com/heyvaldemar/wikijs-traefik-letsencrypt-docker-compose/actions/workflows/deployment-verification.yml)
 
-This repository deploys **Wiki.js** — a modern, self-hosted wiki — behind **Traefik** with automatic **Let's Encrypt TLS**, backed by **PostgreSQL**, with a scheduled **backup container** and a companion **restore script**.
+This repository deploys **Wiki.js** (a modern, self-hosted wiki) behind **Traefik** with automatic **Let's Encrypt TLS**, backed by **PostgreSQL**, with a scheduled **backup container** and a companion **restore script**.
 
 📙 Full narrative installation guide on the blog: [heyvaldemar.com/install-wikijs-using-docker-compose/](https://www.heyvaldemar.com/install-wikijs-using-docker-compose/).
 
@@ -61,18 +61,18 @@ docker compose -f wikijs-traefik-letsencrypt-docker-compose.yml -p wikijs up -d 
 
 This repository is a deployment template, not a custom image. It orchestrates three upstream images:
 
-- [`requarks/wiki`](https://hub.docker.com/r/requarks/wiki) — Wiki.js upstream
-- [`postgres`](https://hub.docker.com/_/postgres) — PostgreSQL, Docker Hub official image
-- [`traefik`](https://hub.docker.com/_/traefik) — reverse proxy, Docker Hub official image
+- [`requarks/wiki`](https://hub.docker.com/r/requarks/wiki): Wiki.js upstream
+- [`postgres`](https://hub.docker.com/_/postgres): PostgreSQL, Docker Hub official image
+- [`traefik`](https://hub.docker.com/_/traefik): reverse proxy, Docker Hub official image
 
-All three are pinned to `tag@sha256:<digest>` as interpolation defaults in the compose file's `x-images` block. Compose pulls by digest, not by tag, so two users deploying on different days get byte-identical image manifests — and `git pull` alone delivers the version combination this repository has tested. Setting `WIKIJS_IMAGE_TAG`, `WIKIJS_POSTGRES_IMAGE_TAG`, or `TRAEFIK_IMAGE_TAG` in `.env` overrides the default when you deliberately want a different version.
+All three are pinned to `tag@sha256:<digest>` as interpolation defaults in the compose file's `x-images` block. Compose pulls by digest, not by tag, so two users deploying on different days get byte-identical image manifests, and `git pull` alone delivers the version combination this repository has tested. Setting `WIKIJS_IMAGE_TAG`, `WIKIJS_POSTGRES_IMAGE_TAG`, or `TRAEFIK_IMAGE_TAG` in `.env` overrides the default when you deliberately want a different version.
 
 The daily `check-pin-freshness` CI job re-resolves each pinned tag against its registry and compares the pinned Wiki.js and Traefik versions against the latest upstream releases. PostgreSQL is tracked within its major line only: a major bump requires a dump/restore migration of your data, so it only ever happens in a major release of this template with explicit upgrade notes. GitHub Actions are pinned by commit SHA with version comments; Dependabot keeps those fresh.
 
 ## Production checklist
 
-- [ ] **Strong `WIKIJS_DB_PASSWORD`** — generate per `.env.example`, at least 24 random characters.
-- [ ] **Host-mount the backups volume.** By default dumps land in the `wikijs-database-backups` named volume — if the host dies, backups die with it. Bind-mount the path to a host directory covered by your off-host backup solution (restic, rclone, Borg, S3 sync).
+- [ ] **Strong `WIKIJS_DB_PASSWORD`**: generate per `.env.example`, at least 24 random characters.
+- [ ] **Host-mount the backups volume.** By default dumps land in the `wikijs-database-backups` named volume: if the host dies, backups die with it. Bind-mount the path to a host directory covered by your off-host backup solution (restic, rclone, Borg, S3 sync).
 - [ ] **Know the restore procedure.** Run `./wikijs-restore-database.sh` against a test environment before you need it in production.
 - [ ] **Verify Let's Encrypt cert issuance.** Watch `docker compose -p wikijs logs traefik -f` on first start for `Adding certificate for domain(s)`.
 - [ ] **Lock down the Traefik dashboard.** Basic auth is basic. Consider Traefik's `IPAllowList` middleware or not exposing the dashboard publicly at all.
@@ -80,9 +80,9 @@ The daily `check-pin-freshness` CI job re-resolves each pinned tag against its r
 
 ## Backups
 
-The `backups` container runs `pg_dump | gzip` on a loop: an initial delay (`BACKUP_INIT_SLEEP`, default 30m), then one timestamped dump every `BACKUP_INTERVAL` (default 24h), pruning files older than `POSTGRES_BACKUP_PRUNE_DAYS` (default 7). All knobs are `.env`-overridable — see `.env.example`.
+The `backups` container runs `pg_dump | gzip` on a loop: an initial delay (`BACKUP_INIT_SLEEP`, default 30m), then one timestamped dump every `BACKUP_INTERVAL` (default 24h), pruning files older than `POSTGRES_BACKUP_PRUNE_DAYS` (default 7). All knobs are `.env`-overridable: see `.env.example`.
 
-Each cycle logs `Database backup OK: <file> (<bytes> bytes)` or `Database backup FAILED` (the same for the data archive where there is one). A failed dump is kept as `<file>.failed` for diagnosis and never overwrites a good backup — grep the log for `FAILED` from your monitoring.
+Each cycle logs `Database backup OK: <file> (<bytes> bytes)` or `Database backup FAILED` (the same for the data archive where there is one). A failed dump is kept as `<file>.failed` for diagnosis and never overwrites a good backup: grep the log for `FAILED` from your monitoring.
 
 **Verify backups are running:**
 
@@ -102,7 +102,7 @@ The script lists available dumps, prompts for a selection, stops Wiki.js, recrea
 
 ## Resource limits
 
-Every service carries memory and CPU limits plus reservations as compose-level defaults — the same values CI boots the stack under. Override any of them in `.env` (the knobs and their defaults are listed in `.env.example`, e.g. `TRAEFIK_MEMORY_LIMIT=512m`) and the override survives every `git pull`. If a service is OOM-killed under real load, `docker inspect <container> --format '{{.State.OOMKilled}}'` says so; raise its `_MEMORY_LIMIT` and recreate.
+Every service carries memory and CPU limits plus reservations as compose-level defaults: the same values CI boots the stack under. Override any of them in `.env` (the knobs and their defaults are listed in `.env.example`, e.g. `TRAEFIK_MEMORY_LIMIT=512m`) and the override survives every `git pull`. If a service is OOM-killed under real load, `docker inspect <container> --format '{{.State.OOMKilled}}'` says so; raise its `_MEMORY_LIMIT` and recreate.
 
 ## Container hardening
 
@@ -114,14 +114,14 @@ The [Deployment Verification](https://github.com/heyvaldemar/wikijs-traefik-lets
 
 ### Backup and restore, proven
 
-`tests/e2e-backup-restore.sh` runs against the live stack and is what CI executes after the HTTPS smoke. The scenario that matters most is the restore roundtrip: insert a marker row, restore the earliest backup, assert the marker is gone — a backup that cannot be restored fails the build. Run it yourself against a running deployment with short intervals in `.env` (`BACKUP_INIT_SLEEP=15s`, `BACKUP_INTERVAL=60s`):
+`tests/e2e-backup-restore.sh` runs against the live stack and is what CI executes after the HTTPS smoke. The scenario that matters most is the restore roundtrip: insert a marker row, restore the earliest backup, assert the marker is gone. A backup that cannot be restored fails the build. Run it yourself against a running deployment with short intervals in `.env` (`BACKUP_INIT_SLEEP=15s`, `BACKUP_INTERVAL=60s`):
 
 ```bash
 chmod +x tests/e2e-backup-restore.sh
 ./tests/e2e-backup-restore.sh
 ```
 
-It stops the database container briefly to prove failure detection — run it on a staging copy, not on production.
+It stops the database container briefly to prove failure detection: run it on a staging copy, not on production.
 
 ## Security Notes
 
@@ -134,7 +134,7 @@ It stops the database container briefly to prove failure detection — run it on
 
 <div align="center">
 
-**Maintained by [Vladimir Mikhalev](https://github.com/heyvaldemar)** — Docker Captain · IBM Champion · AWS Community Builder
+**Maintained by [Vladimir Mikhalev](https://github.com/heyvaldemar)** · Docker Captain · IBM Champion · AWS Community Builder
 
 [YouTube](https://www.youtube.com/channel/UCf85kQ0u1sYTTTyKVpxrlyQ?sub_confirmation=1) · [Blog](https://heyvaldemar.com) · [LinkedIn](https://www.linkedin.com/in/heyvaldemar/)
 
