@@ -6,9 +6,9 @@
 # CI (Trivy scans, check-pin-freshness, the ephemeral test .env) reads
 # the pins from these lines — this block is the single source of truth.
 x-images:
-  traefik: &traefik-image ${TRAEFIK_IMAGE_TAG:-traefik:3.7@sha256:9c2a54d87f76f5c2f5f2682c68394af92fb12c0a2686798d6462a3f84bd78eaf}
-  wikijs: &wikijs-image ${WIKIJS_IMAGE_TAG:-requarks/wiki:2.5.314@sha256:68f0d1848261ae76492ba358e30a96a76fed5d97a3fff381656082bf90f70d7e}
-  postgres: &postgres-image ${WIKIJS_POSTGRES_IMAGE_TAG:-postgres:14.24@sha256:156f0b253fd61366d5fc2107ad45955027d5612f695a8436ce20167f3fa79bff}
+  traefik: &traefik-image ${TRAEFIK_IMAGE_TAG:-traefik:${TRAEFIK_IMAGE_VERSION:-3.7@sha256:9c2a54d87f76f5c2f5f2682c68394af92fb12c0a2686798d6462a3f84bd78eaf}}
+  wikijs: &wikijs-image ${WIKIJS_IMAGE_TAG:-requarks/wiki:${WIKIJS_IMAGE_VERSION:-2.5.314@sha256:68f0d1848261ae76492ba358e30a96a76fed5d97a3fff381656082bf90f70d7e}}
+  postgres: &postgres-image ${WIKIJS_POSTGRES_IMAGE_TAG:-postgres:${WIKIJS_POSTGRES_IMAGE_VERSION:-14.24@sha256:156f0b253fd61366d5fc2107ad45955027d5612f695a8436ce20167f3fa79bff}}
 
 networks:
   wikijs-network:

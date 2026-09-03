@@ -136,7 +136,7 @@ jobs:
 
       - name: Compare pinned Wiki.js version against the latest release
         run: |
-          pin="$(grep -oE '\$\{WIKIJS_IMAGE_TAG:-[^}]+\}' wikijs-traefik-letsencrypt-docker-compose.yml | head -1 | sed -E 's/^\$\{WIKIJS_IMAGE_TAG:-//; s/\}$//')"
+          pin="$(grep -m1 -oE '\$\{WIKIJS_IMAGE_TAG:-.*' wikijs-traefik-letsencrypt-docker-compose.yml | sed -E -e ':a' -e 's/\$\{[A-Z_]+:-([^{}]*)\}/\1/' -e 'ta')"
           ref="${pin%%@*}"
           pinned_version="${ref##*:}"
           latest="$(curl -fsSL --retry 3 -H "Authorization: Bearer $GH_API_TOKEN" https://api.github.com/repos/requarks/wiki/releases/latest | jq -r .tag_name)"
@@ -156,7 +156,7 @@ jobs:
         # a major bump would require a dump/restore migration, so the gate
         # tracks patch releases within the pinned major only.
         run: |
-          pin="$(grep -oE '\$\{WIKIJS_POSTGRES_IMAGE_TAG:-[^}]+\}' wikijs-traefik-letsencrypt-docker-compose.yml | head -1 | sed -E 's/^\$\{WIKIJS_POSTGRES_IMAGE_TAG:-//; s/\}$//')"
+          pin="$(grep -m1 -oE '\$\{WIKIJS_POSTGRES_IMAGE_TAG:-.*' wikijs-traefik-letsencrypt-docker-compose.yml | sed -E -e ':a' -e 's/\$\{[A-Z_]+:-([^{}]*)\}/\1/' -e 'ta')"
           ref="${pin%%@*}"
           pinned_version="${ref##*:}"
           major="${pinned_version%%.*}"
@@ -174,7 +174,7 @@ jobs:
 
       - name: Compare pinned Traefik minor against the latest release
         run: |
-          pin="$(grep -oE '\$\{TRAEFIK_IMAGE_TAG:-[^}]+\}' wikijs-traefik-letsencrypt-docker-compose.yml | head -1 | sed -E 's/^\$\{TRAEFIK_IMAGE_TAG:-//; s/\}$//')"
+          pin="$(grep -m1 -oE '\$\{TRAEFIK_IMAGE_TAG:-.*' wikijs-traefik-letsencrypt-docker-compose.yml | sed -E -e ':a' -e 's/\$\{[A-Z_]+:-([^{}]*)\}/\1/' -e 'ta')"
           ref="${pin%%@*}"
           pinned_minor="${ref##*:}"
           latest="$(curl -fsSL --retry 3 -H "Authorization: Bearer $GH_API_TOKEN" https://api.github.com/repos/traefik/traefik/releases/latest | jq -r .tag_name)"
