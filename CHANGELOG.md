@@ -9,6 +9,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 _(no unreleased changes yet)_
 
+## [1.6.0] - 2026-09-06
+
+### Fixed
+
+- **A backup killed halfway no longer keeps the name a finished one has.** The
+  dump is written to `<name>.partial` and renamed only once it has succeeded.
+  The loop already renamed a failed dump to `.failed`, but that branch only
+  runs if the shell survives to reach it — a container stopped mid-dump does
+  not, and left a truncated file under exactly the name a restore picks.
+- **PostgreSQL is given sixty seconds to shut down.** Docker's default is ten
+  and then SIGKILL, which can cut a checkpoint in half and leave the next start
+  doing crash recovery.
+
+Both changes went out across the fleet on 4 September. This repository was
+missed because the rollout ran over the checkouts on one machine rather than
+over the list of repositories, and this one was not among them. The
+conformance check now runs against GitHub for exactly that reason.
+
 ## [1.5.0] - 2026-09-03
 
 ### Added
@@ -139,7 +157,8 @@ in [keycloak-traefik-letsencrypt-docker-compose](https://github.com/heyvaldemar/
   dump.
 - `.env.example` with generation commands; `.gitignore` for `.env`.
 
-[Unreleased]: https://github.com/heyvaldemar/wikijs-traefik-letsencrypt-docker-compose/compare/v1.5.0...HEAD
+[Unreleased]: https://github.com/heyvaldemar/wikijs-traefik-letsencrypt-docker-compose/compare/v1.6.0...HEAD
+[1.6.0]: https://github.com/heyvaldemar/wikijs-traefik-letsencrypt-docker-compose/compare/v1.5.0...v1.6.0
 [1.5.0]: https://github.com/heyvaldemar/wikijs-traefik-letsencrypt-docker-compose/compare/v1.4.0...v1.5.0
 [1.4.0]: https://github.com/heyvaldemar/wikijs-traefik-letsencrypt-docker-compose/compare/v1.3.0...v1.4.0
 [1.3.0]: https://github.com/heyvaldemar/wikijs-traefik-letsencrypt-docker-compose/compare/v1.2.1...v1.3.0
