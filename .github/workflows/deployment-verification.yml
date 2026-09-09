@@ -300,6 +300,7 @@ jobs:
           if [ -n "$prev_pg" ] && [ -n "$new_pg" ] && [ "$prev_pg" != "$new_pg" ]; then
             echo "PostgreSQL crosses a major here, $prev_pg -> $new_pg: drilling the shipped migration"
             # Dollar-quoted so no shell quote ever has to survive three layers.
+            # shellcheck disable=SC2016  # $$...$$ is PostgreSQL's quoting, not the shell's
             printf 'CREATE TABLE upgrade_drill(marker text);\nINSERT INTO upgrade_drill VALUES ($$survived$$);\n' > drill-write.sql
             # shellcheck disable=SC2016  # expands in the container, from its own environment
             docker compose -f .upgrade-drill-previous.yml -p "$COMPOSE_PROJECT_NAME" exec -T postgres \
