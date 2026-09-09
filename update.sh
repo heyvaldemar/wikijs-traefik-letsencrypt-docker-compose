@@ -87,6 +87,18 @@ if [ "$DRY_RUN" = "true" ]; then
   exit 0
 fi
 
+# A PostgreSQL major is the one change `up -d` cannot carry: the new server
+# refuses the data directory the old one wrote, and the container exits before
+# Wiki.js ever connects. Read both majors before the checkout, while the old
+# compose file is still the one on disk.
+_pg_now="$(grep -oE 'postgres:\$\{[A-Z0-9_]+:-[0-9]+' "$COMPOSE_FILE" | grep -oE '[0-9]+$' | head -1)"
+_pg_new="$(git show "$latest:$COMPOSE_FILE" 2>/dev/null | grep -oE 'postgres:\$\{[A-Z0-9_]+:-[0-9]+' | grep -oE '[0-9]+$' | head -1)"
+
 git checkout -q "$latest"
-docker compose -f "$COMPOSE_FILE" -p "$PROJECT" up -d --remove-orphans
+if [ -n "$_pg_now" ] && [ -n "$_pg_new" ] && [ "$_pg_now" != "$_pg_new" ]; then
+  echo "PostgreSQL moves $_pg_now -> $_pg_new in $latest: dumping and reloading rather than restarting"
+  ./wikijs-upgrade-postgres.sh
+else
+  docker compose -f "$COMPOSE_FILE" -p "$PROJECT" up -d --remove-orphans
+fi
 echo "now on $latest"

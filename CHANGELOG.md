@@ -7,7 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-_(no unreleased changes yet)_
+### Changed
+
+- **PostgreSQL 14 → 17, which is a migration and not a restart.** PostgreSQL 14
+  reaches end of life on 12 November 2026. A data directory belongs to one
+  major, so the new server refuses the old one's files and `docker compose up
+  -d` is not the upgrade path here. `./wikijs-upgrade-postgres.sh` dumps the
+  database with the old server's own `pg_dump`, refuses to continue unless that
+  dump reads back as a valid archive, removes only the PostgreSQL data volume,
+  starts 17 alone, loads the dump, and brings the stack back up. `./update.sh`
+  calls it when a release moves the major; `--dry-run` on either says what would
+  happen. **Take your own copy of the dump it leaves behind**: once the old
+  volume is removed it is the only one. PostgreSQL 17 is supported until
+  November 2029.
+
+### Added
+
+- **The upgrade drill runs the migration.** Where a release changes the
+  PostgreSQL major, CI no longer restarts the stack on the previous release's
+  volumes - it writes a row into the previous release's database, runs
+  `./wikijs-upgrade-postgres.sh`, and fails the build unless that row reads back
+  from the new server. A migration nobody has run is a migration nobody should
+  ship.
 
 ## [1.7.0] - 2026-09-07
 

@@ -289,7 +289,37 @@ jobs:
             docker compose -f .upgrade-drill-previous.yml -p "$COMPOSE_PROJECT_NAME" logs --tail 80
             exit 1
           fi
-          echo "$prev is up and healthy; stopping it and keeping its volumes"
+          echo "$prev is up and healthy"
+          # Across a PostgreSQL major, `up -d` is not the upgrade path at all:
+          # the new server refuses the data directory the old one wrote. The
+          # template ships the migration for exactly this, so the drill runs
+          # THAT, and proves a row written before it is readable after it.
+          # Anything less would ship a migration nobody had ever run.
+          prev_pg="$(grep -oE 'postgres:\$\{[A-Z0-9_]+:-[0-9]+' .upgrade-drill-previous.yml | grep -oE '[0-9]+$' | head -1)"
+          new_pg="$(grep -oE 'postgres:\$\{[A-Z0-9_]+:-[0-9]+' "$DOCKER_COMPOSE_FILE" | grep -oE '[0-9]+$' | head -1)"
+          if [ -n "$prev_pg" ] && [ -n "$new_pg" ] && [ "$prev_pg" != "$new_pg" ]; then
+            echo "PostgreSQL crosses a major here, $prev_pg -> $new_pg: drilling the shipped migration"
+            # Dollar-quoted so no shell quote ever has to survive three layers.
+            # shellcheck disable=SC2016  # $$...$$ is PostgreSQL's quoting, not the shell's
+            printf 'CREATE TABLE upgrade_drill(marker text);\nINSERT INTO upgrade_drill VALUES ($$survived$$);\n' > drill-write.sql
+            # shellcheck disable=SC2016  # expands in the container, from its own environment
+            docker compose -f .upgrade-drill-previous.yml -p "$COMPOSE_PROJECT_NAME" exec -T postgres \
+              sh -c 'psql -v ON_ERROR_STOP=1 -q -U "$POSTGRES_USER" -d "$POSTGRES_DB"' < drill-write.sql
+            rm -f .upgrade-drill-previous.yml
+            ./wikijs-upgrade-postgres.sh
+            printf 'SELECT marker FROM upgrade_drill;\n' > drill-read.sql
+            # shellcheck disable=SC2016  # expands in the container, from its own environment
+            got="$(docker compose -f "$DOCKER_COMPOSE_FILE" -p "$COMPOSE_PROJECT_NAME" exec -T postgres \
+              sh -c 'psql -tAq -U "$POSTGRES_USER" -d "$POSTGRES_DB"' < drill-read.sql | tr -d '[:space:]')"
+            rm -f drill-write.sql drill-read.sql
+            if [ "$got" != "survived" ]; then
+              echo "::error::the PostgreSQL migration did not carry the data across $prev_pg -> $new_pg: read back '$got'"
+              exit 1
+            fi
+            echo "the migration carried the data across $prev_pg -> $new_pg; the stack is already up on the new major"
+            exit 0
+          fi
+          echo "stopping it and keeping its volumes"
           docker compose -f .upgrade-drill-previous.yml -p "$COMPOSE_PROJECT_NAME" down
           rm -f .upgrade-drill-previous.yml
           echo "the start below is now an upgrade from $prev"
