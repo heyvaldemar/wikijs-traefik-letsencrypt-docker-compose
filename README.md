@@ -61,6 +61,16 @@ docker compose -f wikijs-traefik-letsencrypt-docker-compose.yml -p wikijs up -d 
 
 `./update.sh` moves this checkout to the latest release tag — a combination this repository's CI has booted, upgraded from the previous release on the same volumes, and smoke-tested — and then runs `docker compose up -d`. It refuses to cross a major version unattended, refuses to run over local changes, and names any variable that became required since your version before anything has moved. `./update.sh --dry-run` says what would happen. Every release cut by fleet triage also carries what upstream changed, read from its release notes against this compose file.
 
+### Crossing a PostgreSQL major
+
+A PostgreSQL data directory belongs to one major version. Start 17 on a directory 14 wrote and the server exits with `database files are incompatible with server`, so restarting is not the upgrade path across a major: the data has to be dumped by the old server and loaded into a cluster the new one initialises.
+
+`./wikijs-upgrade-postgres.sh` does exactly that, in this order, stopping at the first thing that fails: it compares the major the compose file pins against the major the running container reports and exits when they match, dumps the database with the old server's own `pg_dump` to a file beside the script, refuses to go on unless that dump is a valid archive, stops the stack keeping every volume, removes only the PostgreSQL data volume, starts the new server alone, loads the dump, and brings the rest of the stack back up. Nothing is removed until the dump exists and reads back as one.
+
+`./update.sh` calls it for you when a release moves the major, and `./wikijs-upgrade-postgres.sh --dry-run` says what would happen without touching anything. The dump is left in place afterwards; copy it somewhere else before you delete it, because from the moment the old volume is removed it is the only copy.
+
+The upgrade drill in CI runs this script, not a restart, whenever a release changes the major: it writes a row into the previous release's database, runs the migration, and fails the build unless that row reads back from the new one.
+
 ## Supply chain trust
 
 This repository is a deployment template, not a custom image. It orchestrates three upstream images:
@@ -73,7 +83,7 @@ All three are pinned to `tag@sha256:<digest>` as interpolation defaults in the c
 
 Two override levels exist per image. `<PREFIX>_IMAGE_VERSION` in `.env` swaps only the version of that image (Compose then pulls the tag, without a digest) and leaves every other pin as tested; `<PREFIX>_IMAGE_TAG` replaces the whole reference, digest included. The variable names are listed in `.env.example`. Nested defaults need Docker Compose v2.5 or newer (2022); v2.0 to v2.4 leave the inner `${...}` unexpanded and `docker compose up` fails with an invalid reference instead of deploying something unexpected.
 
-The daily `check-pin-freshness` CI job re-resolves each pinned tag against its registry and compares the pinned Wiki.js and Traefik versions against the latest upstream releases. PostgreSQL is tracked within its major line only: a major bump requires a dump/restore migration of your data, so it only ever happens in a major release of this template with explicit upgrade notes. GitHub Actions are pinned by commit SHA with version comments; Dependabot keeps those fresh.
+The daily `check-pin-freshness` CI job re-resolves each pinned tag against its registry and compares the pinned Wiki.js and Traefik versions against the latest upstream releases. PostgreSQL is tracked within its major line only: a major bump needs the dump and reload described under Updating, so it only ever happens in a major release of this template, and the drill proves the migration before that release is cut. GitHub Actions are pinned by commit SHA with version comments; Dependabot keeps those fresh.
 
 ## Production checklist
 
@@ -82,7 +92,7 @@ The daily `check-pin-freshness` CI job re-resolves each pinned tag against its r
 - [ ] **Know the restore procedure.** Run `./wikijs-restore-database.sh` against a test environment before you need it in production.
 - [ ] **Verify Let's Encrypt cert issuance.** Watch `docker compose -p wikijs logs traefik -f` on first start for `Adding certificate for domain(s)`.
 - [ ] **Lock down the Traefik dashboard.** Basic auth is basic. Consider Traefik's `IPAllowList` middleware or not exposing the dashboard publicly at all.
-- [ ] **Plan the PostgreSQL 14 exit.** PostgreSQL 14 reaches end of life in November 2026. A future major release of this template will move to a newer major with dump/restore instructions; watch the releases.
+- [ ] **Read the PostgreSQL migration before you need it.** This template moved from PostgreSQL 14 to 17 before 14 reached end of life on 12 November 2026. Deployments still on 14 cross with `./wikijs-upgrade-postgres.sh`, described under Updating; `--dry-run` shows the steps against your own deployment without changing anything. PostgreSQL 17 is supported until November 2029.
 
 ## Backups
 
