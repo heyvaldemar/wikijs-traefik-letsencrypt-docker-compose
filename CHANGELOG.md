@@ -7,7 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-_(no unreleased changes yet)_
+### Changed
+
+- **`postgres:17` moved to `postgres:17.11`.** The freshness check reported the lag; the deploy job booted the stack on the new image before this landed.
 
 ## [2.0.0] - 2026-09-09
 
