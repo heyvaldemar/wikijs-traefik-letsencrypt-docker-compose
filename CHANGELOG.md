@@ -7,7 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-_(no unreleased changes yet)_
+### Changed
+
+- **`requarks/wiki:2.5.314` moved to `requarks/wiki:2.5.315`.** The freshness check reported the lag; the deploy job booted the stack on the new image before this landed.
+
+### Security
+
+- **`postgres:17.11` was rebuilt upstream**; the pin moved from `sha256:67f41722b7a8…` to `sha256:f4c66b820c6f…`. Same version, same tag, a rebuilt base image — the usual shape of a security fix in a base layer.
+- **`traefik:3.7` was rebuilt upstream**; the pin moved from `sha256:f86a2cab1b5c…` to `sha256:24841fe2de73…`. Same version, same tag, a rebuilt base image — the usual shape of a security fix in a base layer.
 
 ## [2.0.1] - 2026-09-14
 
