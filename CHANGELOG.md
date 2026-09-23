@@ -7,7 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-_(no unreleased changes yet)_
+### Changed
+
+- **The freshness check has its own workflow, Pin Freshness.** It ran inside Deployment Verification, whose badge is the one at the top of this README. Across the fleet, nine red runs in ten were a pin one version behind - which the fleet's triage moves within the day - and a reader cannot tell that from a stack that does not boot. The badge now says whether the stack boots. The job itself is unchanged.
+- **Checked daily, as the security policy already said.** This template's schedule was weekly while its SECURITY.md said the pins are re-resolved daily, and nothing recorded a reason for the difference. It now runs daily like the rest of the fleet.
 
 ## [2.0.2] - 2026-09-21
 
