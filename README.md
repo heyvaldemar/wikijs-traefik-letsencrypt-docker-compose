@@ -89,7 +89,7 @@ The daily `check-pin-freshness` CI job re-resolves each pinned tag against its r
 
 - [ ] **Strong `WIKIJS_DB_PASSWORD`**: generate per `.env.example`, at least 24 random characters.
 - [ ] **Host-mount the backups volume.** By default dumps land in the `wikijs-database-backups` named volume: if the host dies, backups die with it. Bind-mount the path to a host directory covered by your off-host backup solution (restic, rclone, Borg, S3 sync).
-- [ ] **Know the restore procedure.** Run `./wikijs-restore-database.sh` against a test environment before you need it in production.
+- [ ] **Know the restore procedure.** Run `./wikijs-restore-database.sh` against a test environment before you need it in production. It lists the backups and asks, or takes a file name as its argument; it reads every path and credential from the running backups container, and CI runs it on every push.
 - [ ] **Verify Let's Encrypt cert issuance.** Watch `docker compose -p wikijs logs traefik -f` on first start for `Adding certificate for domain(s)`.
 - [ ] **Lock down the Traefik dashboard.** Basic auth is basic. Consider Traefik's `IPAllowList` middleware or not exposing the dashboard publicly at all.
 - [ ] **Read the PostgreSQL migration before you need it.** This template moved from PostgreSQL 14 to 17 before 14 reached end of life on 12 November 2026. Deployments still on 14 cross with `./wikijs-upgrade-postgres.sh`, described under Updating; `--dry-run` shows the steps against your own deployment without changing anything. PostgreSQL 17 is supported until November 2029.
