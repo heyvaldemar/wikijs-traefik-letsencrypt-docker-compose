@@ -126,7 +126,7 @@ Every service runs with `security_opt: no-new-privileges:true`, so a process can
 
 ## Testing
 
-The [Deployment Verification](https://github.com/heyvaldemar/wikijs-traefik-letsencrypt-docker-compose/actions/workflows/deployment-verification.yml?query=branch%3Amain) workflow runs on every push, pull request, and every day at 06:00 UTC: shellcheck + actionlint, a Trivy scan of each pinned image, the daily `check-pin-freshness` job, and a deploy-and-test job that boots the full stack with an ephemeral `.env` and short backup intervals, requires the Wiki.js UI to answer 200 over HTTPS through Traefik, and verifies that a backup file appears and contains a valid PostgreSQL dump.
+The [Deployment Verification](https://github.com/heyvaldemar/wikijs-traefik-letsencrypt-docker-compose/actions/workflows/deployment-verification.yml?query=branch%3Amain) workflow runs on every push, pull request, and every day at 06:00 UTC: shellcheck + actionlint, a Trivy scan of each pinned image, and a deploy-and-test job that boots the full stack with an ephemeral `.env` and short backup intervals, requires the Wiki.js UI to answer 200 over HTTPS through Traefik, and verifies that a backup file appears and contains a valid PostgreSQL dump. Pin freshness runs as its own daily workflow, so this badge says whether the stack works, not whether a pin is one version behind.
 
 ### Backup and restore, proven
 
