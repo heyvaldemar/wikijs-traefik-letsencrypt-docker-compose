@@ -8,7 +8,7 @@
 x-images:
   traefik: &traefik-image ${TRAEFIK_IMAGE_TAG:-traefik:${TRAEFIK_IMAGE_VERSION:-3.7@sha256:24841fe2de7304c149343d877d2923b4c8800a38ba015dea9174c23b20e344a0}}
   wikijs: &wikijs-image ${WIKIJS_IMAGE_TAG:-requarks/wiki:${WIKIJS_IMAGE_VERSION:-2.5.315@sha256:af71a17dc27ccc4c768591b1c504631ed820d9d13d4e8c325be4232c0035638c}}
-  postgres: &postgres-image ${WIKIJS_POSTGRES_IMAGE_TAG:-postgres:${WIKIJS_POSTGRES_IMAGE_VERSION:-17.11@sha256:d74eeac9a635390a49bc21bd49fccd973de707e2a53a76ac49b552b8712ec46f}}
+  postgres: &postgres-image ${WIKIJS_POSTGRES_IMAGE_TAG:-postgres:${WIKIJS_POSTGRES_IMAGE_VERSION:-17.11@sha256:f4c66b820c6f974249089d3d16d86a3698eae11e8746eb6644b2271031e91232}}
 
 networks:
   wikijs-network:
