@@ -1,6 +1,7 @@
 # Wiki.js + Traefik + Let's Encrypt on Docker Compose
 
 [![Deployment Verification](https://github.com/heyvaldemar/wikijs-traefik-letsencrypt-docker-compose/actions/workflows/deployment-verification.yml/badge.svg?branch=main)](https://github.com/heyvaldemar/wikijs-traefik-letsencrypt-docker-compose/actions/workflows/deployment-verification.yml)
+[![OpenSSF Best Practices](https://www.bestpractices.dev/projects/14868/badge)](https://www.bestpractices.dev/projects/14868)
 
 This repository deploys Wiki.js (a modern, self-hosted wiki) behind Traefik with automatic Let's Encrypt TLS, backed by PostgreSQL, with a scheduled backup container and a companion restore script.
 
