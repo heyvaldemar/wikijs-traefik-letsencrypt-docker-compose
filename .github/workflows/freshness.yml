@@ -87,7 +87,15 @@ jobs:
           pin="$(grep -m1 -oE '\$\{WIKIJS_IMAGE_TAG:-.*' wikijs-traefik-letsencrypt-docker-compose.yml | sed -E -e ':a' -e 's/\$\{[A-Z0-9_]+:-([^{}]*)\}/\1/' -e 'ta')"
           ref="${pin%%@*}"
           pinned_version="${ref##*:}"
-          latest="$(curl -fsSL --retry 3 -H "Authorization: Bearer $GH_API_TOKEN" https://api.github.com/repos/requarks/wiki/releases/latest | jq -r .tag_name)"
+          # THE NEWEST STABLE RELEASE, NOT releases/latest. On 2 October 2026
+          # requarks published 3.0.0-beta.617 without the pre-release flag, so
+          # releases/latest named a beta that upstream itself calls "not for
+          # production use", and this check went red asking for it. The list is
+          # read instead: drafts and flagged pre-releases are dropped, and so is
+          # any tag with a pre-release suffix whatever its flag says.
+          latest="$(curl -fsSL --retry 3 -H "Authorization: Bearer $GH_API_TOKEN" 'https://api.github.com/repos/requarks/wiki/releases?per_page=50' \
+            | jq -r '.[] | select((.prerelease | not) and (.draft | not)) | .tag_name | select(test("-(alpha|beta|rc|pre|preview|dev|nightly)"; "i") | not)' \
+            | sed 's/^v//' | sort -V | tail -1)"
           latest="${latest#v}"
           if [ -z "$latest" ] || [ "$latest" = "null" ]; then
             echo "::error::Could not determine the latest Wiki.js release from the GitHub API"
