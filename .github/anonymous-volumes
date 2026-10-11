@@ -1,0 +1,4 @@
+# Anonymous volumes this stack keeps on purpose, one per line: service, path, reason.
+# The deployment verification fails on any anonymous volume not listed here, because
+# an anonymous volume is never backed up and is replaced by an empty one on down/up.
+wikijs /wiki/data/content used only by the optional local-disk storage target, which this template does not enable; pages and uploads are in PostgreSQL
