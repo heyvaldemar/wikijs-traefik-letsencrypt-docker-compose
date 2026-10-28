@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+_(no unreleased changes yet)_
+
+## [2.1.11] - 2026-10-28
+
 ### Security
 
 - **`postgres:17.11` was rebuilt upstream**; the pin moved from `sha256:b8faeff77126…` to `sha256:31ba9c94a03a…`. Same version, same tag, a rebuilt base image — the usual shape of a security fix in a base layer.
@@ -306,7 +310,8 @@ in [keycloak-traefik-letsencrypt-docker-compose](https://github.com/heyvaldemar/
   dump.
 - `.env.example` with generation commands; `.gitignore` for `.env`.
 
-[Unreleased]: https://github.com/heyvaldemar/wikijs-traefik-letsencrypt-docker-compose/compare/v2.1.10...HEAD
+[Unreleased]: https://github.com/heyvaldemar/wikijs-traefik-letsencrypt-docker-compose/compare/v2.1.11...HEAD
+[2.1.11]: https://github.com/heyvaldemar/wikijs-traefik-letsencrypt-docker-compose/compare/v2.1.10...v2.1.11
 [2.1.10]: https://github.com/heyvaldemar/wikijs-traefik-letsencrypt-docker-compose/compare/v2.1.9...v2.1.10
 [2.1.9]: https://github.com/heyvaldemar/wikijs-traefik-letsencrypt-docker-compose/compare/v2.1.8...v2.1.9
 [2.1.8]: https://github.com/heyvaldemar/wikijs-traefik-letsencrypt-docker-compose/compare/v2.1.7...v2.1.8
