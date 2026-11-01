@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+_(no unreleased changes yet)_
+
+## [2.1.13] - 2026-11-01
+
 ### Changed
 
 - **The freshness check follows the Wiki.js 2.x maintenance line.** Upstream moved 2.x to `requarks/wiki-v2`, where 2.5.316 and 2.5.317 were released without this check seeing them, and shipped Wiki.js 3, which imports a 2.x wiki instead of upgrading it. The check now reads both repositories and compares within the pinned major; a move to 3.x will be a major release of this template.
@@ -322,7 +326,8 @@ in [keycloak-traefik-letsencrypt-docker-compose](https://github.com/heyvaldemar/
   dump.
 - `.env.example` with generation commands; `.gitignore` for `.env`.
 
-[Unreleased]: https://github.com/heyvaldemar/wikijs-traefik-letsencrypt-docker-compose/compare/v2.1.12...HEAD
+[Unreleased]: https://github.com/heyvaldemar/wikijs-traefik-letsencrypt-docker-compose/compare/v2.1.13...HEAD
+[2.1.13]: https://github.com/heyvaldemar/wikijs-traefik-letsencrypt-docker-compose/compare/v2.1.12...v2.1.13
 [2.1.12]: https://github.com/heyvaldemar/wikijs-traefik-letsencrypt-docker-compose/compare/v2.1.11...v2.1.12
 [2.1.11]: https://github.com/heyvaldemar/wikijs-traefik-letsencrypt-docker-compose/compare/v2.1.10...v2.1.11
 [2.1.10]: https://github.com/heyvaldemar/wikijs-traefik-letsencrypt-docker-compose/compare/v2.1.9...v2.1.10
