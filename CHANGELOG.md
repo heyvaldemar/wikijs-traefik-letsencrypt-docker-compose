@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **The freshness check follows the Wiki.js 2.x maintenance line.** Upstream moved 2.x to `requarks/wiki-v2`, where 2.5.316 and 2.5.317 were released without this check seeing them, and shipped Wiki.js 3, which imports a 2.x wiki instead of upgrading it. The check now reads both repositories and compares within the pinned major; a move to 3.x will be a major release of this template.
+
 ### Security
 
 - **`postgres:17.11` was rebuilt upstream**; the pin moved from `sha256:31ba9c94a03a…` to `sha256:3b0cda93be7c…`. Same version, same tag, a rebuilt base image — the usual shape of a security fix in a base layer.

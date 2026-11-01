@@ -93,12 +93,29 @@ jobs:
           # production use", and this check went red asking for it. The list is
           # read instead: drafts and flagged pre-releases are dropped, and so is
           # any tag with a pre-release suffix whatever its flag says.
-          latest="$(curl -fsSL --retry 3 -H "Authorization: Bearer $GH_API_TOKEN" 'https://api.github.com/repos/requarks/wiki/releases?per_page=50' \
-            | jq -r '.[] | select((.prerelease | not) and (.draft | not)) | .tag_name | select(test("-(alpha|beta|rc|pre|preview|dev|nightly)"; "i") | not)' \
-            | sed 's/^v//' | sort -V | tail -1)"
+          #
+          # THE PINNED MAJOR'S LINE, FROM WHICHEVER REPOSITORY CARRIES IT. On
+          # 1 November 2026 requarks shipped 3.0.1, a rewrite that imports a
+          # 2.x wiki instead of upgrading it, and the 2.x line had already moved
+          # to requarks/wiki-v2, which had released 2.5.316 and 2.5.317. This
+          # read requarks/wiki alone, so it never saw those two and asked for
+          # the rewrite instead. Both repositories are read, each one or the
+          # check fails, and only the pinned major counts: 3.x is a major of
+          # this template, made by hand.
+          major="${pinned_version%%.*}"
+          releases=""
+          for repo in requarks/wiki requarks/wiki-v2; do
+            page="$(curl -fsSL --retry 3 -H "Authorization: Bearer $GH_API_TOKEN" "https://api.github.com/repos/${repo}/releases?per_page=50")" || {
+              echo "::error::Could not read the releases of ${repo} from the GitHub API"
+              exit 1
+            }
+            releases="${releases}${page}"
+          done
+          latest="$(jq -r '.[] | select((.prerelease | not) and (.draft | not)) | .tag_name | select(test("-(alpha|beta|rc|pre|preview|dev|nightly)"; "i") | not)' <<<"$releases" \
+            | sed 's/^v//' | awk -F. -v m="$major" '$1 == m' | sort -V | tail -1)"
           latest="${latest#v}"
           if [ -z "$latest" ] || [ "$latest" = "null" ]; then
-            echo "::error::Could not determine the latest Wiki.js release from the GitHub API"
+            echo "::error::Could not determine the latest Wiki.js ${major}.x release from the GitHub API"
             exit 1
           fi
           # ORDER, NOT INEQUALITY. `!=` calls any difference "behind", including
