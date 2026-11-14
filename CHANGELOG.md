@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+_(no unreleased changes yet)_
+
+## [2.1.21] - 2026-11-14
+
 ### Changed
 
 - **`postgres:17.11` moved to `postgres:17.12`.** The freshness check reported the lag; the deploy job booted the stack on the new image before this landed.
@@ -374,7 +378,8 @@ in [keycloak-traefik-letsencrypt-docker-compose](https://github.com/heyvaldemar/
   dump.
 - `.env.example` with generation commands; `.gitignore` for `.env`.
 
-[Unreleased]: https://github.com/heyvaldemar/wikijs-traefik-letsencrypt-docker-compose/compare/v2.1.20...HEAD
+[Unreleased]: https://github.com/heyvaldemar/wikijs-traefik-letsencrypt-docker-compose/compare/v2.1.21...HEAD
+[2.1.21]: https://github.com/heyvaldemar/wikijs-traefik-letsencrypt-docker-compose/compare/v2.1.20...v2.1.21
 [2.1.20]: https://github.com/heyvaldemar/wikijs-traefik-letsencrypt-docker-compose/compare/v2.1.19...v2.1.20
 [2.1.19]: https://github.com/heyvaldemar/wikijs-traefik-letsencrypt-docker-compose/compare/v2.1.18...v2.1.19
 [2.1.18]: https://github.com/heyvaldemar/wikijs-traefik-letsencrypt-docker-compose/compare/v2.1.17...v2.1.18
