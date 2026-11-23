@@ -84,7 +84,8 @@ jobs:
           cd "$work"
           curl -fsSL -o docker-compose "https://github.com/docker/compose/releases/download/v${COMPOSE_VERSION}/docker-compose-linux-x86_64"
           curl -fsSL -o checksums.txt "https://github.com/docker/compose/releases/download/v${COMPOSE_VERSION}/checksums.txt"
-          [ "$(grep -F ' *docker-compose-linux-x86_64' checksums.txt | awk '{print $1}')" = "$COMPOSE_SHA256" ] \
+          # The file also lists docker-compose-linux-x86_64.sbom.json and friends: anchor the name.
+          [ "$(grep -E ' \*docker-compose-linux-x86_64$' checksums.txt | awk '{print $1}')" = "$COMPOSE_SHA256" ] \
             || { echo "::error::the release checksums.txt differs from the pinned checksum"; exit 1; }
           echo "${COMPOSE_SHA256}  docker-compose" | sha256sum -c -
           sudo mkdir -p /usr/local/lib/docker/cli-plugins
