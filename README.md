@@ -115,6 +115,8 @@ The identity is exact: this repository's `release-assets.yml`, on the tag you de
 
 ## Backups
 
+> **Experimental branch `compose-jobs-spike`.** The backup is a Compose job (`jobs.backup`, scheduled with `BACKUP_CRON`, default `0 3 * * *`, evaluated by Docker Engine in UTC) instead of a container that sleeps in a loop. It needs Docker Compose 5.8.0+ and Docker Engine 29.10.0+ started with the jobs extension (`dockerd --extension-enable org.mobyproject.jobs.v0`, or `extensions.enable` in `daemon.json`); both Docker pages mark jobs as experimental. The sections below that still describe the `backups` container and its `BACKUP_INIT_SLEEP` / `BACKUP_INTERVAL` describe `main`, not this branch. `.github/workflows/compose-jobs-spike.yml` and `tests/e2e-jobs-backup-restore.sh` are the proof that the engine fires the job by itself and that `./wikijs-restore-database.sh` restores from its output.
+
 The `backups` container runs `pg_dump | gzip` on a loop: an initial delay (`BACKUP_INIT_SLEEP`, default 30m), then one timestamped dump every `BACKUP_INTERVAL` (default 24h), pruning files older than `POSTGRES_BACKUP_PRUNE_DAYS` (default 7). All knobs are `.env`-overridable: see `.env.example`.
 
 Each cycle logs `Database backup OK: <file> (<bytes> bytes)` or `Database backup FAILED` (the same for the data archive where there is one). A failed dump is kept as `<file>.failed` for diagnosis and never overwrites a good backup: grep the log for `FAILED` from your monitoring.

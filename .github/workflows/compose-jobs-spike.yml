@@ -1,0 +1,151 @@
+name: Compose jobs spike
+
+# EXPERIMENTAL. Proves, on a runner, that the backup declared as a Compose
+# `jobs.backup` is fired by the Docker Engine on its own clock and that the
+# shipped restore script brings its data back. It only runs on the spike
+# branch (and by hand); it is not part of Deployment Verification.
+#
+# Docker Compose 5.8.0 (17 Nov 2026) and Docker Engine 29.10.0 (16 Nov 2026)
+# are not on the runner image, so both are installed here from the vendors'
+# own release files, each checked against a pinned SHA-256:
+#   - Engine: the static tarball and the .sha256 file Docker publishes next to
+#     it (https://download.docker.com/linux/static/stable/x86_64/);
+#   - Compose: checksums.txt of the GitHub release docker/compose v5.8.0.
+# The jobs extension is off by default; it is turned on in daemon.json
+# (extensions.enable), the way the Engine docs describe.
+
+on:
+  push:
+    branches:
+      - compose-jobs-spike
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: compose-jobs-spike-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  jobs-backup:
+    name: Engine 29.10 + Compose 5.8.0, scheduled backup job, restore
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    env:
+      DOCKER_ENGINE_VERSION: "29.10.0"
+      DOCKER_ENGINE_SHA256: "7c1ebadc65c716cdc6d35fc78759ed0e4317debf43c21dd12f066f2006999def"
+      COMPOSE_VERSION: "5.8.0"
+      COMPOSE_SHA256: "b8840f5008c447f41fce0a57ae3adeab42c89b1eb6e6012524bcabbfb4ffbaf6"
+      NETWORK_ONE: wikijs-network
+      NETWORK_TWO: traefik-network
+      DOCKER_COMPOSE_FILE: wikijs-traefik-letsencrypt-docker-compose.yml
+      COMPOSE_PROJECT_NAME: wikijs
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Runner before the install
+        run: |
+          . /etc/os-release && echo "runner OS: $PRETTY_NAME"
+          docker version --format 'engine (before): {{.Server.Version}}' || true
+          docker compose version || true
+
+      - name: Install Docker Engine ${{ env.DOCKER_ENGINE_VERSION }} (checksum pinned) with the jobs extension
+        run: |
+          set -euo pipefail
+          work="$(mktemp -d)"
+          cd "$work"
+          curl -fsSL -o docker.tgz "https://download.docker.com/linux/static/stable/x86_64/docker-${DOCKER_ENGINE_VERSION}.tgz"
+          # The vendor's own checksum file must agree with the pin, then the pin is the gate.
+          curl -fsSL -o docker.tgz.sha256 "https://download.docker.com/linux/static/stable/x86_64/docker-${DOCKER_ENGINE_VERSION}.tgz.sha256"
+          [ "$(awk '{print $1}' docker.tgz.sha256)" = "$DOCKER_ENGINE_SHA256" ] \
+            || { echo "::error::the published .sha256 differs from the pinned checksum"; exit 1; }
+          echo "${DOCKER_ENGINE_SHA256}  docker.tgz" | sha256sum -c -
+          tar -xzf docker.tgz
+          sudo systemctl stop docker.socket docker.service containerd.service
+          sudo install -m 0755 docker/* /usr/bin/
+          sudo mkdir -p /etc/docker
+          [ -s /etc/docker/daemon.json ] || echo '{}' | sudo tee /etc/docker/daemon.json >/dev/null
+          sudo jq '.extensions.enable = ["org.mobyproject.jobs.v0"]' /etc/docker/daemon.json | sudo tee "$work/daemon.json" >/dev/null
+          sudo install -m 0644 "$work/daemon.json" /etc/docker/daemon.json
+          echo "daemon.json keys: $(sudo jq -r 'keys | join(",")' /etc/docker/daemon.json)"
+          sudo systemctl start containerd.service docker.service
+          docker version --format 'engine: {{.Server.Version}}, API {{.Server.APIVersion}}'
+          sudo journalctl -u docker.service --no-pager | grep -F 'extension=org.mobyproject.jobs.v0' | head -n 2 \
+            || { echo "::error::the jobs extension did not load"; sudo journalctl -u docker.service --no-pager | tail -n 40; exit 1; }
+
+      - name: Install Docker Compose ${{ env.COMPOSE_VERSION }} (checksum pinned)
+        run: |
+          set -euo pipefail
+          work="$(mktemp -d)"
+          cd "$work"
+          curl -fsSL -o docker-compose "https://github.com/docker/compose/releases/download/v${COMPOSE_VERSION}/docker-compose-linux-x86_64"
+          curl -fsSL -o checksums.txt "https://github.com/docker/compose/releases/download/v${COMPOSE_VERSION}/checksums.txt"
+          [ "$(grep -F ' *docker-compose-linux-x86_64' checksums.txt | awk '{print $1}')" = "$COMPOSE_SHA256" ] \
+            || { echo "::error::the release checksums.txt differs from the pinned checksum"; exit 1; }
+          echo "${COMPOSE_SHA256}  docker-compose" | sha256sum -c -
+          sudo mkdir -p /usr/local/lib/docker/cli-plugins
+          sudo install -m 0755 docker-compose /usr/local/lib/docker/cli-plugins/docker-compose
+          [ "$(docker compose version --short)" = "$COMPOSE_VERSION" ] \
+            || { echo "::error::docker compose is not $COMPOSE_VERSION"; docker compose version; exit 1; }
+          docker compose version
+
+      - name: Create necessary Docker networks
+        run: |
+          docker network create "$NETWORK_ONE" || true
+          docker network create "$NETWORK_TWO" || true
+
+      - name: Generate test .env with ephemeral credentials and a 2-minute backup schedule
+        run: |
+          cat > .env <<EOF
+          TRAEFIK_ACME_EMAIL=ci@example.com
+          TRAEFIK_HOSTNAME=traefik.wikijs.heyvaldemardy.net
+          TRAEFIK_BASIC_AUTH=traefikadmin:\$\$2y\$\$10\$\$sMzJfirKC75x/hVpiINeZOiSm.Jkity9cn4KwNkRvO7hSQVFc5FLO
+          WIKIJS_HOSTNAME=wikijs.heyvaldemardy.net
+          WIKIJS_DB_PASSWORD=ci-$(openssl rand -hex 16)
+          BACKUP_CRON=*/2 * * * *
+          EOF
+          echo "Generated ephemeral .env for CI run"
+
+      - name: Start capturing Docker events before the job is registered
+        run: |
+          events="$RUNNER_TEMP/job-events.jsonl"
+          : > "$events"
+          setsid nohup docker events --format '{{json .}}' > "$events" 2>/dev/null < /dev/null &
+          echo "JOBS_EVENTS_FILE=$events" >> "$GITHUB_ENV"
+
+      - name: Start the stack (registers the scheduled job with the engine)
+        run: |
+          docker compose -f "$DOCKER_COMPOSE_FILE" -p "$COMPOSE_PROJECT_NAME" up -d
+          docker compose -f "$DOCKER_COMPOSE_FILE" -p "$COMPOSE_PROJECT_NAME" ps -a
+          echo "registered at $(date -u +%H:%M:%S) UTC; the first run is due at the next even minute"
+
+      - name: Scheduled run, restore from its backup, visible failure
+        # No `docker compose run` anywhere in this workflow: the only thing
+        # that can start the job is the engine's own schedule.
+        run: |
+          chmod +x tests/e2e-jobs-backup-restore.sh wikijs-restore-database.sh
+          ./tests/e2e-jobs-backup-restore.sh
+
+      - name: Job runs the engine recorded (docker events)
+        if: always()
+        run: |
+          jq -r 'select(.Type == "container" and .Actor.Attributes["com.docker.job.id"] != null
+                        and (.Action == "create" or .Action == "start" or .Action == "die" or .Action == "destroy"))
+                 | [(.time | strftime("%H:%M:%S")), .Action, ("exit=" + (.Actor.Attributes.exitCode // "-")),
+                    ("run=" + .Actor.Attributes["com.docker.job.run-id"][0:12]),
+                    ("oneoff=" + .Actor.Attributes["com.docker.compose.oneoff"])] | @tsv' "$JOBS_EVENTS_FILE" || true
+
+      - name: Show container and daemon logs on failure
+        if: failure()
+        run: |
+          docker ps -a
+          docker compose -f "$DOCKER_COMPOSE_FILE" -p "$COMPOSE_PROJECT_NAME" logs --tail 80
+          sudo journalctl -u docker.service --no-pager | grep -i -E 'job|extension' | tail -n 60
+
+      - name: Shutdown Docker Compose services
+        if: always()
+        run: docker compose -f "$DOCKER_COMPOSE_FILE" -p "$COMPOSE_PROJECT_NAME" down

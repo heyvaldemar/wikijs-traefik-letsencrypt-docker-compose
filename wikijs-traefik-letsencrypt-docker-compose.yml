@@ -18,7 +18,6 @@ networks:
 
 volumes:
   wikijs-postgres:
-  wikijs-postgres-backup:
   traefik-certificates:
   wikijs-database-backups:
 
@@ -230,14 +229,22 @@ services:
       - "traefik.http.services.dashboard.loadbalancer.passhostheader=true"
     restart: unless-stopped
 
-  backups:
+# EXPERIMENTAL (branch compose-jobs-spike): the backup is a scheduled JOB, not
+# a service that sleeps in a loop. Docker Engine fires it on its own clock and
+# keeps a run record with the exit code; Compose registers it on `up`. Needs
+# Docker Compose >= 5.8.0 and Docker Engine >= 29.10.0 started with the jobs
+# extension (`dockerd --extension-enable org.mobyproject.jobs.v0`, or
+# extensions.enable in daemon.json), which is off by default.
+# A job runs to completion, so there is no `deploy`, `restart` or
+# `container_name` here; limits use the container-level attributes instead.
+jobs:
+  backup:
     image: *postgres-image
     # Hardening: no privilege escalation via setuid binaries
     security_opt:
       - no-new-privileges:true
     # Drop every Linux capability; add back only what this image's
-    # entrypoint needs (bind :80/:443, chown its data directory, drop to
-    # its service user).
+    # entrypoint needs (chown its data directory, drop to its service user).
     cap_drop:
       - ALL
     cap_add:
@@ -246,48 +253,58 @@ services:
       - FOWNER
     # Resource limits as .env-overridable defaults (e.g. WIKIJS_BACKUPS_MEMORY_LIMIT=2g);
     # the override survives every git pull.
-    deploy:
-      resources:
-        limits:
-          memory: ${WIKIJS_BACKUPS_MEMORY_LIMIT:-256m}
-          cpus: "${WIKIJS_BACKUPS_CPU_LIMIT:-0.5}"
-        reservations:
-          memory: ${WIKIJS_BACKUPS_MEMORY_RESERVATION:-32m}
-          cpus: "${WIKIJS_BACKUPS_CPU_RESERVATION:-0.1}"
-    command: >-
-      bash -c 'set -o pipefail;
-      sleep "$$BACKUP_INIT_SLEEP";
-      while true; do
-        STAMP="$$(date +%Y-%m-%d_%H-%M)";
-        DB_FILE="$$POSTGRES_BACKUPS_PATH/$$POSTGRES_BACKUP_NAME-$$STAMP.gz";
-        echo "[$$(date -Iseconds)] Starting database backup to $$DB_FILE";
-        if pg_dump -h postgres -p 5432 -d $$WIKIJS_DB_NAME -U $$WIKIJS_DB_USER | gzip > "$$DB_FILE.partial"; then
-          mv "$$DB_FILE.partial" "$$DB_FILE";
-          echo "[$$(date -Iseconds)] Database backup OK: $$DB_FILE ($$(stat -c %s "$$DB_FILE") bytes)";
+    mem_limit: ${WIKIJS_BACKUPS_MEMORY_LIMIT:-256m}
+    cpus: ${WIKIJS_BACKUPS_CPU_LIMIT:-0.5}
+    # One run is one dump. A failed dump is kept as <file>.failed and the run
+    # exits non-zero, so the engine records it as failed and Compose keeps the
+    # container for `docker compose ps -a` / `docker logs`.
+    command:
+      - bash
+      - -c
+      - |
+        set -o pipefail
+        STAMP="$$(date +%Y-%m-%d_%H-%M)"
+        DB_FILE="$$POSTGRES_BACKUPS_PATH/$$POSTGRES_BACKUP_NAME-$$STAMP.gz"
+        rc=0
+        echo "[$$(date -Iseconds)] Starting database backup to $$DB_FILE"
+        if pg_dump -h postgres -p 5432 -d "$$WIKIJS_DB_NAME" -U "$$WIKIJS_DB_USER" | gzip > "$$DB_FILE.partial"; then
+          mv "$$DB_FILE.partial" "$$DB_FILE"
+          echo "[$$(date -Iseconds)] Database backup OK: $$DB_FILE ($$(stat -c %s "$$DB_FILE") bytes)"
         else
-          echo "[$$(date -Iseconds)] Database backup FAILED - partial file kept as $$DB_FILE.failed for diagnosis" >&2;
-          mv "$$DB_FILE.partial" "$$DB_FILE.failed" 2>/dev/null || true;
-        fi;
+          echo "[$$(date -Iseconds)] Database backup FAILED - partial file kept as $$DB_FILE.failed for diagnosis" >&2
+          mv "$$DB_FILE.partial" "$$DB_FILE.failed" 2>/dev/null || true
+          rc=1
+        fi
         if [ "$${POSTGRES_BACKUP_PRUNE_DAYS:-0}" -ge 1 ]; then
-          find "$$POSTGRES_BACKUPS_PATH" -type f -name "$$POSTGRES_BACKUP_NAME-*" -mtime "+$$POSTGRES_BACKUP_PRUNE_DAYS" -delete;
-        fi;
-        sleep "$$BACKUP_INTERVAL";
-      done'
+          find "$$POSTGRES_BACKUPS_PATH" -type f -name "$$POSTGRES_BACKUP_NAME-*" -mtime "+$$POSTGRES_BACKUP_PRUNE_DAYS" -delete
+        fi
+        exit "$$rc"
+    # The image declares a VOLUME at its data directory; a tmpfs there keeps
+    # every run from leaving an anonymous volume behind (this used to be the
+    # named volume wikijs-postgres-backup, which nothing ever read).
+    tmpfs:
+      - /var/lib/postgresql/data
+    # NOTE (Compose 5.8.0): a volume that only a job uses is NOT created by
+    # `compose up`; the engine creates it on the first run under this bare
+    # name, without the project prefix or labels, so `down -v` does not remove
+    # it. See the spike notes.
     volumes:
-      - wikijs-postgres-backup:/var/lib/postgresql/data
       - wikijs-database-backups:${POSTGRES_BACKUPS_PATH:-/srv/wikijs-postgres/backups}
     environment:
       WIKIJS_DB_NAME: ${WIKIJS_DB_NAME:-wikijsdb}
       WIKIJS_DB_USER: ${WIKIJS_DB_USER:-wikijsdbuser}
       PGPASSWORD: ${WIKIJS_DB_PASSWORD}
-      BACKUP_INIT_SLEEP: ${BACKUP_INIT_SLEEP:-30m}
-      BACKUP_INTERVAL: ${BACKUP_INTERVAL:-24h}
       POSTGRES_BACKUP_PRUNE_DAYS: ${POSTGRES_BACKUP_PRUNE_DAYS:-7}
       POSTGRES_BACKUPS_PATH: ${POSTGRES_BACKUPS_PATH:-/srv/wikijs-postgres/backups}
       POSTGRES_BACKUP_NAME: ${POSTGRES_BACKUP_NAME:-wikijs-postgres-backup}
     networks:
       - wikijs-network
-    restart: unless-stopped
-    depends_on:
-      postgres:
-        condition: service_healthy
+    # Evaluated by the engine in UTC (no timezone set). `depends_on` is NOT
+    # evaluated when the engine fires a scheduled job: if postgres is down, the
+    # run fails and is recorded as failed. missed_fires: one runs a single
+    # catch-up backup if the engine was stopped at the scheduled time.
+    triggers:
+      schedule:
+        - cron: "${BACKUP_CRON:-0 3 * * *}"
+          concurrency: forbid
+          missed_fires: one
